@@ -1,5 +1,6 @@
 import machine
 import config
+import dht
 from machine import Pin
 import time
 import utime
@@ -24,6 +25,9 @@ class Sensor:
 
         # soil sensor
         self.soil_last_read_time = None
+
+        # dht sensor
+        self.dht_last_read_time = None
 
     def load_pump_rate(self):
         with open('./data.json', 'r') as f:
@@ -145,16 +149,27 @@ class Sensor:
         if (self.soil_last_read_time is not None) and time.time() - self.soil_last_read_time < config.READ_SOIL_INTERVAL_S:
             return moisture, temperature
 
-        #print("Reading temperature and humidity")
+        #print("Reading temperature and moisture from soil sensor")
         i2c = machine.I2C(0, sda=machine.Pin(config.SOIL_SDA_PIN), scl=machine.Pin(config.SOIL_SCL_PIN), freq=400000)
         seesaw = StemmaSoilSensor(i2c)
-
         # get moisture
         moisture = seesaw.get_moisture()
-
         # get temperature
         temperature = seesaw.get_temp()
-
         self.soil_last_read_time = time.time()
-
         return moisture, temperature
+    
+
+    def read_ambient_humidity_temp(self):
+        humidity = 0
+        temperature = 0
+        if (self.dht_last_read_time is not None) and time.time() - self.dht_last_read_time < config.READ_DHT_INTERVAL_S:
+            return humidity, temperature
+
+        tempSensor = dht.DHT11(Pin(config.DHT_PIN)) 
+        tempSensor.measure()
+        temperature = tempSensor.temperature()
+        humidity = tempSensor.humidity()
+        self.dht_last_read_time = time.time()
+        return humidity, temperature
+        

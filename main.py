@@ -97,6 +97,11 @@ while True:
             temperature = temperature_temp
             print("Temperature in soil is {} degrees and moisture is {}".format(temperature, moisture))
 
+        # Read DHT sensor
+        humidity, temperature = sensor.read_ambient_humidity_temp()
+        if humidity != 0 and temperature != 0:
+            print("Temperature in ambient is {} degrees and humidity is {}%".format(temperature, humidity))
+
         pump_controller()
 
  
