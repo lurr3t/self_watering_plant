@@ -105,24 +105,30 @@ class Sensor:
     # other sensors
 
     def run_pump_ml(self, ml: int):
-        self.pump_stopped = False
-        if self.pump_start_time is None:
-            # Turn on the pump
-            self.relay.value(1)
-            # Record the start time in milliseconds
-            self.pump_start_time = utime.ticks_ms()
-            print(f"start time is {self.pump_start_time}")
-            # Calculate the run time in milliseconds. How long it should run
-            self.run_time = ml / self.pump_rate  # no need to convert to s
-            print(f"Starting pump: run time is {self.run_time} ms")
-                
-        # If the pump is running and the run time has passed
-        elif utime.ticks_ms() - self.pump_start_time >= self.run_time:
-            # Turn off the pump
+        try:
+            self.pump_stopped = False
+            if self.pump_start_time is None:
+                # Turn on the pump
+                self.relay.value(1)
+                # Record the start time in milliseconds
+                self.pump_start_time = utime.ticks_ms()
+                print(f"start time is {self.pump_start_time}")
+                # Calculate the run time in milliseconds. How long it should run
+                self.run_time = ml / self.pump_rate  # no need to convert to s
+                print(f"Starting pump: run time is {self.run_time} ms")
+                    
+            # If the pump is running and the run time has passed
+            elif utime.ticks_ms() - self.pump_start_time >= self.run_time:
+                # Turn off the pump
+                self.relay.value(0)
+                # Reset the start time
+                self.pump_start_time = None
+                self.pump_stopped = True
+        except Exception as e:
             self.relay.value(0)
-            # Reset the start time
             self.pump_start_time = None
             self.pump_stopped = True
+            raise Exception("Error running pump")
       
 
     def run_pump_on_press(self, button: int):
@@ -163,13 +169,17 @@ class Sensor:
     def read_ambient_humidity_temp(self):
         humidity = 0
         temperature = 0
-        if (self.dht_last_read_time is not None) and time.time() - self.dht_last_read_time < config.READ_DHT_INTERVAL_S:
-            return humidity, temperature
+        try:
 
-        tempSensor = dht.DHT11(Pin(config.DHT_PIN)) 
-        tempSensor.measure()
-        temperature = tempSensor.temperature()
-        humidity = tempSensor.humidity()
-        self.dht_last_read_time = time.time()
-        return humidity, temperature
-        
+            if (self.dht_last_read_time is not None) and time.time() - self.dht_last_read_time < config.READ_DHT_INTERVAL_S:
+                return humidity, temperature
+
+            tempSensor = dht.DHT11(Pin(config.DHT_PIN)) 
+            tempSensor.measure()
+            temperature = tempSensor.temperature()
+            humidity = tempSensor.humidity()
+            self.dht_last_read_time = time.time()
+            return humidity, temperature
+        except Exception as e: # temporary fix. It gets a checksum error when pump is running. Interferance?
+            print(e)
+            return humidity, temperature

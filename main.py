@@ -8,9 +8,9 @@ import config
 import json
 
 # ml/ms benchmark
-BENCHMARK = True
+BENCHMARK = False
 
-BENCHMARK_ML = 100
+BENCHMARK_ML = 800
 BENCHMARK_START_TIME: int = None
 BENCHMARK_STARTED = False
 
@@ -90,21 +90,22 @@ def pump_controller():
 while True:
 
     try:
+        
         # Read soil sensor
         moisture_temp, temperature_temp = sensor.read_soil()
         if moisture_temp != 0 and temperature_temp != 0:
             moisture = moisture_temp
             temperature = temperature_temp
             print("Temperature in soil is {} degrees and moisture is {}".format(temperature, moisture))
-
+        
         # Read DHT sensor
         humidity, temperature = sensor.read_ambient_humidity_temp()
         if humidity != 0 and temperature != 0:
             print("Temperature in ambient is {} degrees and humidity is {}%".format(temperature, humidity))
+            
 
         pump_controller()
 
- 
 
     except Exception as error:
         print("Exception occurred", error)
