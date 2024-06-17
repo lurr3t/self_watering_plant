@@ -166,7 +166,7 @@ class Sensor:
         return moisture, temperature
     
 
-    def read_ambient_humidity_temp(self):
+    def read_inner_humidity_temp(self):
         humidity = 0
         temperature = 0
         try:

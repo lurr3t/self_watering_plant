@@ -1,3 +1,4 @@
+import sys
 import dht
 import machine
 from sensor import Sensor
@@ -7,9 +8,14 @@ import utime
 import config
 import json
 
-# ml/ms benchmark
-BENCHMARK = False
+# Restore water level
+WATER_LEVEL_RESET = False # Set to True to reset water level, or set from dashboard
+WATER_LEVEL = 100 #100% is full, 0% is empty. Container is 1L at max
+WATER_CONTAINER_SIZE = 1000 # 1L
 
+
+# ml/ms benchmark
+BENCHMARK = False # Set to True to run benchmark, or set from dashboard
 BENCHMARK_ML = 800
 BENCHMARK_START_TIME: int = None
 BENCHMARK_STARTED = False
@@ -55,14 +61,14 @@ def pump_controller():
     global LAST_PUMP_END_TIME
     global moisture
     
-    # if button is pressed, run pump
+    # If button is pressed, run pump
     if sensor.pump_button() == 0:
         print("Button is pressed")
         benchmark("start")
         sensor.run_pump_on_press(sensor.pump_button())
         RUN_PUMP_WHEN_PRESSED = True
         
-
+    # Kill pump if button is released
     elif (RUN_PUMP_WHEN_PRESSED == True) and (sensor.pump_button() == 1):
         print("Button is released")
         benchmark("stop")
@@ -70,7 +76,7 @@ def pump_controller():
         RUN_PUMP_WHEN_PRESSED = False
         LAST_PUMP_END_TIME = time.time()
         
-    
+    # If pump has not been run for a while and moisture is under threshold, run pump
     elif LAST_PUMP_END_TIME is 0 or time.time() - LAST_PUMP_END_TIME > config.PUMP_DELAY_S: 
         # Runs pump if moisture is under threshold
         if moisture < config.SOIL_MOISTURE_THRESHOLD:
@@ -82,30 +88,32 @@ def pump_controller():
             #print("Moisture is above threshold")
             sensor.kill_pump()
             
+def read_soil_sensor():
+    global moisture
+    global temperature
+    moisture_temp, temperature_temp = sensor.read_soil()
+    if moisture_temp != 0 and temperature_temp != 0:
+        moisture = moisture_temp
+        temperature = temperature_temp
+        print("Temperature in soil is {} degrees and moisture is {}".format(temperature, moisture))
 
 
-      
+def read_dht_sensor():
+    global temperature
+    global humidity
+    humidity, temperature = sensor.read_inner_humidity_temp()
+    if humidity != 0 and temperature != 0:
+        print("Inner temperature is {} degrees and humidity is {}%".format(temperature, humidity))
+
+
 
 # main loop
 while True:
 
     try:
-        
-        # Read soil sensor
-        moisture_temp, temperature_temp = sensor.read_soil()
-        if moisture_temp != 0 and temperature_temp != 0:
-            moisture = moisture_temp
-            temperature = temperature_temp
-            print("Temperature in soil is {} degrees and moisture is {}".format(temperature, moisture))
-        
-        # Read DHT sensor
-        humidity, temperature = sensor.read_ambient_humidity_temp()
-        if humidity != 0 and temperature != 0:
-            print("Temperature in ambient is {} degrees and humidity is {}%".format(temperature, humidity))
-            
-
+        read_soil_sensor()
+        read_dht_sensor()
         pump_controller()
-
 
     except Exception as error:
         print("Exception occurred", error)
