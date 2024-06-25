@@ -9,10 +9,12 @@ import utime
 import config
 import json
 
+# Set last publish time to None
+last_publish_time: int = None
+
 # Restore water level
 WATER_LEVEL_RESET = False # Set to True to reset water level, or set from dashboard
 WATER_CONTAINER_SIZE = 1000 # 1L
-
 
 # ml/ms benchmark
 BENCHMARK = False # Set to True to run benchmark, or set from dashboard
@@ -22,19 +24,24 @@ BENCHMARK_STARTED = False
 
 # initial config
 Sensor.turn_off_led()
+PUMP_START_TIME: int = None
 LAST_PUMP_END_TIME = 0
 RUN_PUMP_WHEN_PRESSED = False #do not set. Is changed when pump is run
 sensor = Sensor()
 sensor.kill_pump()
 
-moisture: int = 0
-temperature: int = 0
+soil_moisture: int = 0
+soil_temperature: int = 0
+inner_temperature: int = 0
+inner_humidity: int = 0
 
+#TODO make a temporary variable for flowrate when benchmarking, this is done to avoid changing the flowrate when pumping
 # Pump benchmark
 def benchmark(action: str):
     global BENCHMARK
     global BENCHMARK_START_TIME
     global BENCHMARK_STARTED
+
     if BENCHMARK == True:
         if action == "start" and BENCHMARK_STARTED == False:
             print("Start benchmark")
@@ -68,7 +75,9 @@ def reset_water_level():
 def pump_controller():
     global RUN_PUMP_WHEN_PRESSED
     global LAST_PUMP_END_TIME
-    global moisture
+    global PUMP_START_TIME
+    global WATER_CONTAINER_SIZE
+    global soil_moisture
     
     # If button is pressed, run pump
     if sensor.pump_button() == 0:
@@ -77,9 +86,11 @@ def pump_controller():
         # If water level is not reset and run pump when pressed is enabled
         if not reset_water_level():
             if not BENCHMARK:
-                print("kom hit")
                 sensor.toggle_pump_light("on")
 
+            # used for calculating the water level
+            if PUMP_START_TIME is None:
+                PUMP_START_TIME = utime.ticks_ms()
             sensor.run_pump_on_press(sensor.pump_button())
             RUN_PUMP_WHEN_PRESSED = True
         
@@ -88,40 +99,64 @@ def pump_controller():
         print("Button is released")
         benchmark("stop")
         if not BENCHMARK:
-            print("kom hit 2")
             sensor.toggle_pump_light("off")
         sensor.kill_pump()
         RUN_PUMP_WHEN_PRESSED = False
+        # calculate time pump was running
+        if PUMP_START_TIME is not None:
+            pump_run_time = utime.ticks_ms() - PUMP_START_TIME
+            print("Pump ran for: ", pump_run_time, "ms")
+            # calculate water level
+            water_level = Sensor.retrieve_data("water_level")
+            # calculate water_level
+        
+            water_dispensed = Sensor.retrieve_data("pump_rate") * pump_run_time / 10
+            water_level -= water_dispensed
+            print("Water dispensed %: ", water_dispensed)
+            Sensor.save_data("water_level", water_level)
+            print("Water level is: ", water_level)
+            PUMP_START_TIME = None
+
         LAST_PUMP_END_TIME = time.time()
         
     # If pump has not been run for a while and moisture is under threshold, run pump
     elif LAST_PUMP_END_TIME is 0 or time.time() - LAST_PUMP_END_TIME > config.PUMP_DELAY_S: 
         # Runs pump if moisture is under threshold
-        if moisture < config.SOIL_MOISTURE_THRESHOLD:
+        if soil_moisture < config.SOIL_MOISTURE_THRESHOLD:
             #print("Moisture is under threshold")
-            sensor.run_pump_ml(100)
+            ml_to_water = 100
+            sensor.run_pump_ml(ml_to_water)
+
             if sensor.pump_stopped == True:
                 LAST_PUMP_END_TIME = time.time()
+                water_level = Sensor.retrieve_data("water_level")
+                water_level -= 10
+                Sensor.save_data("water_level", water_level)
+                print("Water level is: ", water_level)
+
+
         else:
             #print("Moisture is above threshold")
             sensor.kill_pump()
             
 def read_soil_sensor():
-    global moisture
-    global temperature
+    global soil_moisture
+    global soil_temperature
     moisture_temp, temperature_temp = sensor.read_soil()
     if moisture_temp != 0 and temperature_temp != 0:
-        moisture = moisture_temp
-        temperature = temperature_temp
-        print("Temperature in soil is {} degrees and moisture is {}".format(temperature, moisture))
+        soil_moisture = moisture_temp
+        soil_temperature = temperature_temp
+        print("Temperature in soil is {} degrees and moisture is {}".format(soil_temperature, soil_moisture))
 
 
 def read_dht_sensor():
-    global temperature
-    global humidity
-    humidity, temperature = sensor.read_inner_humidity_temp()
-    if humidity != 0 and temperature != 0:
-        print("Inner temperature is {} degrees and humidity is {}%".format(temperature, humidity))
+    global inner_temperature
+    global inner_humidity
+    humidity_temp, temperature_temp = sensor.read_inner_humidity_temp()
+    if humidity_temp != 0 and temperature_temp != 0:
+        inner_temperature = temperature_temp
+        inner_humidity = humidity_temp
+        print("Inner temperature is {} degrees and humidity is {}%".format(inner_temperature, inner_humidity))
 
 
 def set_mode():
@@ -150,25 +185,54 @@ def set_mode():
     else:
         print("Mode is None")
 
+def publish():
+    global last_publish_time
+    global connection
+    global soil_moisture
+    global soil_temperature
+    global inner_temperature
+    global inner_humidity
+
+    # publish data to Adafruit IO at interval
+    if last_publish_time is None or time.time() - last_publish_time > config.PUBLISH_INTERVAL_S:
+        last_publish_time = time.time()
+        connection.publish(config.AIO_SOIL_MOISTURE, str(soil_moisture))
+        connection.publish(config.AIO_INNER_HUM, str(inner_humidity))
+        connection.publish(config.AIO_WATER_LEVEL, str(Sensor.retrieve_data("water_level")))
+
+
 
 
 # main loop
 try:
+    water_level_low_log_switch = False
 
     # Connect to Adafruit IO
     connection = Connection()
     connection.subscribe(config.AIO_SET_MODE)
 
     while True:
+ 
         set_mode()
         connection.check_msg()
         read_soil_sensor()
         read_dht_sensor()
-        pump_controller()
+        # only run pump if water level is above 10%
+        if Sensor.retrieve_data("water_level") > 10 or WATER_LEVEL_RESET == True:
+            pump_controller()
+        else:
+            print("Water level is low")
+            if (not water_level_low_log_switch):
+                connection.publish(config.AIO_LOGS, "Water level is to low")
+                water_level_low_log_switch = True
+
+        publish()
         time.sleep(.1)
 
 except Exception as error:
     print("Exception occurred", error)
     sensor.kill_pump()
+    # publish error to Adafruit IO
+    connection.publish(config.AIO_LOGS, str(error))
     Sensor.error_light()
     
