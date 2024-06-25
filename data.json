@@ -1,1 +1,5 @@
-{"pump_rate": 0.02863278}
+{
+    "pump_rate": 0.02863278,
+    "water_level": 100,
+    "mode": 1
+}

@@ -5,8 +5,8 @@
 			"path": "."
 		},
 		{
-			"name": "serial://dev/tty.usbmodem13301",
-			"uri": "serial://%2fdev%2ftty.usbmodem13301/"
+			"name": "serial://dev/tty.usbmodem13401",
+			"uri": "serial://%2fdev%2ftty.usbmodem13401/"
 		}
 	]
 }

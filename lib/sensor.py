@@ -13,8 +13,9 @@ class Sensor:
 
 
     def __init__(self):
-        #benchmark toggle
+        #benchmark toggle light
         self.benchmark_light = False
+
 
         # pump
         self.relay = Pin(config.RELAY_PIN, Pin.OUT)
@@ -29,15 +30,40 @@ class Sensor:
         # dht sensor
         self.dht_last_read_time = None
 
+
+    # Methods for saving and loading to and from the data json file
+    @staticmethod
+    def save_data(key: str, value):
+        # Load existing data
+        with open('/data.json', 'r') as f:
+            data = json.load(f)
+        # Modify the key value pair
+        data[key] = value
+        # Write the data back to the file
+        with open('/data.json', 'w') as f:
+            json.dump(data, f)
+
+    @staticmethod
+    def retrieve_data(key: str):
+        with open('/data.json', 'r') as f:
+            data = json.load(f)
+            return data[key]
+
+
     def load_pump_rate(self):
-        with open('./data.json', 'r') as f:
+        with open('/data.json', 'r') as f:
             data_loaded = json.load(f)
             self.pump_rate = data_loaded['pump_rate']
 
-    # Lights 
+
+
+
+
+
+    # Lights methods
+
     @staticmethod
     def turn_off_led():
-        print("turn off led")
         Pin(config.RGB_LIGHT_RED_PIN, Pin.OUT).value(0)
         Pin(config.RGB_LIGHT_GREEN_PIN, Pin.OUT).value(0)
         Pin(config.RGB_LIGHT_BLUE_PIN, Pin.OUT).value(0)
@@ -71,12 +97,26 @@ class Sensor:
             Pin(config.RGB_LIGHT_BLUE_PIN, Pin.OUT).value(1)
             self.benchmark_light = True
 
+    # Toggles light for pump
+    def toggle_pump_light(self, mode: str):
+        if mode == "off":
+            Pin(config.RGB_LIGHT_BLUE_PIN, Pin.OUT).value(0)
+            Pin(config.RGB_LIGHT_RED_PIN, Pin.OUT).value(0)
+        elif mode == "on":
+            Pin(config.RGB_LIGHT_BLUE_PIN, Pin.OUT).value(1)
+            Pin(config.RGB_LIGHT_RED_PIN, Pin.OUT).value(1)
+
+    def reset_water_level_light(self):
+        Pin(config.RGB_LIGHT_GREEN_PIN, Pin.OUT).value(1)
+        time.sleep(0.5)
+        Pin(config.RGB_LIGHT_GREEN_PIN, Pin.OUT).value(0)
+
+
 
 
     # blink orange light with delay of 500ms. Introduces total delay of 1 sec
     @staticmethod
     def connecting_wifi_light():
-        print("connecting wifi light")
         LED_Pin_Red = Pin(config.RGB_LIGHT_RED_PIN, Pin.OUT)
         LED_Pin_Green = Pin(config.RGB_LIGHT_GREEN_PIN, Pin.OUT)
         Pin(config.RGB_LIGHT_BLUE_PIN, Pin.OUT).value(0)

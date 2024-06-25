@@ -3,6 +3,7 @@ import dht
 import machine
 from sensor import Sensor
 from machine import Pin
+from connection import Connection
 import time
 import utime
 import config
@@ -10,7 +11,6 @@ import json
 
 # Restore water level
 WATER_LEVEL_RESET = False # Set to True to reset water level, or set from dashboard
-WATER_LEVEL = 100 #100% is full, 0% is empty. Container is 1L at max
 WATER_CONTAINER_SIZE = 1000 # 1L
 
 
@@ -23,7 +23,7 @@ BENCHMARK_STARTED = False
 # initial config
 Sensor.turn_off_led()
 LAST_PUMP_END_TIME = 0
-RUN_PUMP_WHEN_PRESSED = False
+RUN_PUMP_WHEN_PRESSED = False #do not set. Is changed when pump is run
 sensor = Sensor()
 sensor.kill_pump()
 
@@ -49,11 +49,20 @@ def benchmark(action: str):
             BENCHMARK_START_TIME = None
             BENCHMARK_STARTED = False
             # store in data file
-            data = {'pump_rate': pump_rate}
-            with open('/data.json', 'w') as f:
-                json.dump(data, f)
+            Sensor.save_data("pump_rate", pump_rate)
+            # reload pump rate
             sensor.load_pump_rate()
 
+
+# Reset water level. Returns True if water level was reset and False if not
+def reset_water_level():
+    global WATER_LEVEL_RESET
+    if WATER_LEVEL_RESET == True:
+        Sensor.save_data("water_level", 100)
+        print("Water level reset")
+        sensor.reset_water_level_light()
+        return True
+    return False
 
 
 def pump_controller():
@@ -65,13 +74,22 @@ def pump_controller():
     if sensor.pump_button() == 0:
         print("Button is pressed")
         benchmark("start")
-        sensor.run_pump_on_press(sensor.pump_button())
-        RUN_PUMP_WHEN_PRESSED = True
+        # If water level is not reset and run pump when pressed is enabled
+        if not reset_water_level():
+            if not BENCHMARK:
+                print("kom hit")
+                sensor.toggle_pump_light("on")
+
+            sensor.run_pump_on_press(sensor.pump_button())
+            RUN_PUMP_WHEN_PRESSED = True
         
     # Kill pump if button is released
     elif (RUN_PUMP_WHEN_PRESSED == True) and (sensor.pump_button() == 1):
         print("Button is released")
         benchmark("stop")
+        if not BENCHMARK:
+            print("kom hit 2")
+            sensor.toggle_pump_light("off")
         sensor.kill_pump()
         RUN_PUMP_WHEN_PRESSED = False
         LAST_PUMP_END_TIME = time.time()
@@ -106,18 +124,51 @@ def read_dht_sensor():
         print("Inner temperature is {} degrees and humidity is {}%".format(temperature, humidity))
 
 
+def set_mode():
+    global WATER_LEVEL_RESET
+    global BENCHMARK
+    global RUN_PUMP_WHEN_PRESSED
+
+    # Get mode from json
+    mode = Sensor.retrieve_data("mode")
+    #print("Mode is: ", mode)
+    if mode is not None:
+        if mode == config.RESET_WATER_LEVEL:
+            WATER_LEVEL_RESET = True
+            RUN_PUMP_WHEN_PRESSED = False
+            BENCHMARK = False
+        elif mode == config.RUN_PUMP_WHEN_PRESSED:
+            #RUN_PUMP_WHEN_PRESSED = True
+            WATER_LEVEL_RESET = False
+            BENCHMARK = False
+        elif mode == config.BENCHMARK:
+            BENCHMARK = True
+            #RUN_PUMP_WHEN_PRESSED = True
+            WATER_LEVEL_RESET = False
+        else:
+            print("Mode not recognized")
+    else:
+        print("Mode is None")
+
+
 
 # main loop
-while True:
+try:
 
-    try:
+    # Connect to Adafruit IO
+    connection = Connection()
+    connection.subscribe(config.AIO_SET_MODE)
+
+    while True:
+        set_mode()
+        connection.check_msg()
         read_soil_sensor()
         read_dht_sensor()
         pump_controller()
+        time.sleep(.1)
 
-    except Exception as error:
-        print("Exception occurred", error)
-        sensor.kill_pump()
-        Sensor.error_light()
-        break
-    time.sleep(.1)
+except Exception as error:
+    print("Exception occurred", error)
+    sensor.kill_pump()
+    Sensor.error_light()
+    

@@ -32,12 +32,8 @@ class Connection:
     
     def __sub_cb(self, topic, msg):          # sub_cb means "callback subroutine"
         print((topic, msg))          # Outputs the message that was received. Debugging use.
-        #if msg == b"ON":             # If message says "ON" ...
-            #led.on()                 # ... then LED on
-       # elif msg == b"OFF":          # If message says "OFF" ...
-            #led.off()                # ... then LED off
-        #else:                        # If any other message is received ...
-            #print("Unknown message") # ... do nothing but output that it happened.
+        Sensor.save_data("mode", int(msg))          # sets the mode
+        # convert msg to int
 
     def subscribe(self, topic):
         self.client.subscribe(topic)
