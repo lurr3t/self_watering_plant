@@ -43,7 +43,7 @@ class Connection:
         return self.client.check_msg()
     
     
-    def publish(self, topic, msg):
+    def publish(self, topic, msg: str):
         self.client.publish(topic, msg)
 
 
