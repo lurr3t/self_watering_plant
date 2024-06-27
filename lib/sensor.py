@@ -45,9 +45,12 @@ class Sensor:
 
     @staticmethod
     def retrieve_data(key: str):
-        with open('/data.json', 'r') as f:
-            data = json.load(f)
-            return data[key]
+        try:
+            with open('/data.json', 'r') as f:
+                data = json.load(f)
+                return data[key]
+        except Exception as error:
+            raise Exception("Error retrieving data from json: %s" % error)
 
 
     def load_pump_rate(self):

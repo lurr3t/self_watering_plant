@@ -41,6 +41,6 @@ AIO_SOIL_TEMP = "lurr3t/feeds/soil-temp"
 AIO_WATER_LEVEL = "lurr3t/feeds/water-level"
 
 #publish interval
-PUBLISH_INTERVAL_S = 3600
+PUBLISH_INTERVAL_S = 120
 
 

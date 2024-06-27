@@ -40,11 +40,18 @@ class Connection:
         print("Subscribed to %s topic" % topic)
 
     def check_msg(self):
-        return self.client.check_msg()
+        try:
+            return self.client.check_msg()
+        except Exception as error:
+            print("Error checking for messages from Adafruit IO: %s" % error) # temporary fix, dont really know whats causing the exception. 
+            return
     
     
     def publish(self, topic, msg: str):
-        self.client.publish(topic, msg)
+        try:
+            self.client.publish(topic, msg)
+        except Exception as error:
+            raise Exception("Error publishing to Adafruit IO: %s: %s" % error, topic)
 
 
 
