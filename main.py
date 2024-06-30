@@ -39,7 +39,7 @@ soil_temperature: int = 0
 inner_temperature: int = 0
 inner_humidity: int = 0
 
-#TODO make a temporary variable for flowrate when benchmarking, this is done to avoid changing the flowrate when pumping
+
 # Pump benchmark
 def benchmark(action: str):
     global BENCHMARK
@@ -233,7 +233,10 @@ def publish():
     except Exception as error:
         raise Exception("Error publishing data: %s" % error)
 
-
+def error_test():
+    mode = Sensor.retrieve_data("mode")
+    if mode > 3:
+        raise Exception("Error test")
 
 
 try:
@@ -247,8 +250,10 @@ try:
     while True:
         
         set_mode()
+        error_test()
+
         #something wrong with the mode selector. gives -1 exception
-        #connection.check_msg()
+        connection.check_msg()
         read_soil_sensor()
         read_dht_sensor()
         # only run pump if water level is above 10%
@@ -258,7 +263,7 @@ try:
         else:
             print("Water level is low")
             if (not water_level_low_log_switch):
-                connection.publish(config.AIO_LOGS, "Water level is to low")
+                connection.publish(config.AIO_LOGS, "Water level is too low")
                 water_level_low_log_switch = True
      
         publish()
