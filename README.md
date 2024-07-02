@@ -90,7 +90,7 @@ Before any development can begin, the Pico needs to be flashed with appropriate 
 
 ## IDE Setup
 1. Download Visual Studio Code for your OS and install it - [Download Visual Studio Code](https://code.visualstudio.com/download)
-2. Download and install Node.js for your operating system - [Download Node.j](https://nodejs.org/en/download/package-manager)
+2. Download and install Node.js for your operating system - [Download Node.js](https://nodejs.org/en/download/package-manager)
 3. Download the Pymakr plugin for VS code and follow this [guide](https://github.com/sg-wireless/pymakr-vsc/blob/HEAD/GET_STARTED.md/) for setting it up. 
 4. Navigate to the Pymakr tab located in the left vertical bar and press Create project.
 5. A `main.py` file is created where the main code should go. A `.code-workspace` file is also created containing project specific configurations. Click on this file when opening the project in the future.
@@ -308,7 +308,7 @@ elif LAST_PUMP_END_TIME is 0 or time.time() - LAST_PUMP_END_TIME > config.PUMP_D
 Measurements from the sensors are taken every 3 seconds and stored in their respective variables. When 2 minutes have elapsed the current data values are sent using the MQTT protocol to their respective data feed in Adafruit IO. When the water level is updated, it is instead sent directly. All communication is done over Wifi since the device is always indoors and has easy wifi access. Also, no energy optimizations are needed since it is always plugged in, therefore data and sensor measurements can be sent and taken often. 
 
 # Presenting the data
-The dashboard shows the different data feeds. It saves data from the last 30 days when using the free tier. It shows the following information:
+The dashboard shows the different data feeds. It saves data from the last 30 days when using the free tier. It saves data in the built in database every 2 minutes, or when an error is thrown by the code, or the water level is updated. It shows the following information:
 
 * Current water level.
 * Error logs from the last 24h.
